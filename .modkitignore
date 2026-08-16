@@ -1,0 +1,22 @@
+# Kept out of the distributed archive.
+#
+# Entries are exact relative file paths -- modkit matches them literally, so a
+# bare "tests/" silently does nothing. Add the file, not the directory.
+
+# The suite requires engine test infrastructure (tests.modkit) and engine
+# modules (src.world.Collision, src.world.gen2.World), which is a private
+# require against the shipped package, and `pack` treats warnings as fatal.
+# It only means anything inside an engine checkout.
+tests/rby_run_forrest_test.lua
+
+# The two end-to-end drivers reach tests/drivers/util.lua, which lives in the
+# engine and not here, and are run through POKEPORT_DRIVER against a checkout.
+# Same reason as the suite above: outside one they are unrunnable files taking
+# up room in a player's install.
+tests/drivers/route4_climb_test.lua
+tests/drivers/gold_climb_test.lua
+
+# docs/images/ is deliberately NOT ignored. README.md ships inside the archive
+# and points at those six frames with relative paths, so dropping them would
+# put broken images in the one document a player actually opens. Thirty
+# kilobytes is the right price for that.

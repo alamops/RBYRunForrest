@@ -1,8 +1,11 @@
 # Changelog
 
-## [0.1.0] - 2026-08-16
+## [1.0.0] - 2026-08-16
 
-First release.
+First release. Shipped at 1.0.0 rather than 0.x because the feature is
+finished rather than started: both halves work on both generations, both are
+verified in live runs against real map data, and the vanilla behaviour they
+sit next to is unchanged. There is no half of this waiting on a later version.
 
 ### Running
 

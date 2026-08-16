@@ -14,6 +14,56 @@ not a connection feature.
 
 ---
 
+## The jump
+
+Every frame below is a real capture from a live run — the game, the real map
+data, the mod loaded through the real loader. Nothing is staged or drawn.
+
+### Red — pressing UP into a south ledge, B held
+
+<table>
+<tr>
+<td width="33%"><img src="docs/images/gen1-climb-1-before.png" width="100%" alt="Standing below a Route 4 ledge, facing up"></td>
+<td width="33%"><img src="docs/images/gen1-climb-2-midair.png" width="100%" alt="Mid-air over the ledge, the hop shadow on the ground beneath"></td>
+<td width="33%"><img src="docs/images/gen1-climb-3-after.png" width="100%" alt="Standing on the plateau above the ledge"></td>
+</tr>
+<tr>
+<td align="center"><sub><b>1.</b> below the ledge</sub></td>
+<td align="center"><sub><b>2.</b> mid-air, hop shadow beneath</sub></td>
+<td align="center"><sub><b>3.</b> on top</sub></td>
+</tr>
+</table>
+
+Route 4 at (40,10) → (40,8). That landing cell is where the engine's *own*
+ledge test takes off from when it hops down, so this is the exact inverse of
+behaviour the engine already vouches for.
+
+### Gold — pressing UP into a `HOP_DOWN` ledge, B held
+
+<table>
+<tr>
+<td width="33%"><img src="docs/images/gen2-climb-1-before.png" width="100%" alt="Standing below a Route 29 ledge, facing up"></td>
+<td width="33%"><img src="docs/images/gen2-climb-2-midair.png" width="100%" alt="Mid-air over the Route 29 ledge, hop shadow beneath"></td>
+<td width="33%"><img src="docs/images/gen2-climb-3-after.png" width="100%" alt="Standing on the ledge tile itself"></td>
+</tr>
+<tr>
+<td align="center"><sub><b>1.</b> below the ledge</sub></td>
+<td align="center"><sub><b>2.</b> mid-air</sub></td>
+<td align="center"><sub><b>3.</b> on the ledge tile</sub></td>
+</tr>
+</table>
+
+Route 29 at (10,6) → (10,4), collision `0xa3`. Landing *on* the ledge tile is
+the point rather than a near miss: from there the next press hops straight
+back down through Gold's own untouched `.TryJump`.
+
+**The mid-air frame is the one worth looking at.** That arc and that shadow
+are not this mod's — they are each generation's own ledge-hop animation, which
+the climb reuses rather than re-invents. It looks like the drop played
+backwards because that is exactly what it is.
+
+---
+
 ## The part that is new
 
 Running has been done before. Climbing has not, and it is the reason this mod
