@@ -89,6 +89,23 @@ A mountain-wall face is not a ledge and never becomes one. Neither is a cell you
 could simply have walked into — if the gap in front of you is open ground, you
 walk it, because a two-cell jump across open ground is a teleport, not a climb.
 
+### You do not stop to do it
+
+Run at a ledge with B held and you climb it in stride — no pause, no second
+press, exactly the way vanilla hops one the moment you walk into it from the
+top. The climb is decided on the logic tick *before* the pad is read, and a
+walking player is stationary for a single frame between committed steps, so
+the frame they arrive on is a frame the climb can start on.
+
+The e2e drivers measure this rather than assume it: holding B and a direction
+into a ledge, the player idles on the take-off cell for **1 frame** before
+launching, against a 16-frame walk tile. A regression into "walk up, stop,
+press again" would still land in the right cell — so the driver asserts the
+stride, not just the destination.
+
+Approach a ledge from the side and the first press turns you, as any first
+press does; the climb goes on the next tick.
+
 ### On the bike
 
 Yes. B is the gate on foot and on the bike alike, which is the one rule worth

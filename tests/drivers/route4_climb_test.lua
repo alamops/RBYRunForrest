@@ -47,6 +47,21 @@ return function(game)
     U.shot(game, ("%s/%02d_%s.png"):format(shotDir, shotN, name))
   end
 
+  -- Silence.
+  --
+  -- A driver run is automated: nobody is listening, and an unattended run
+  -- that plays the ledge cue and the route theme out loud is just noise on
+  -- whatever machine happens to be running it. LOVE's master volume is the
+  -- one knob that covers both music and SFX no matter how the engine sets
+  -- them per source, so this is the whole mute -- and it is only the output
+  -- level, so every Sound.play the climb makes still runs, and a crash in
+  -- the audio path would still fail this run rather than being muted out of
+  -- sight. POKEPORT_DRIVER_AUDIO=1 turns the sound back on for a human
+  -- watching a run.
+  if os.getenv("POKEPORT_DRIVER_AUDIO") ~= "1" then
+    pcall(function() love.audio.setVolume(0) end)
+  end
+
   -- a party + starter flag so the overworld is fully usable
   game.save.flags = game.save.flags or {}
   game.save.flags.EVENT_GOT_STARTER = true
@@ -270,6 +285,53 @@ return function(game)
     shot("I_roundtrip_5_back_on_top")
     expect(upHop, "I: and B+UP brings you back")
     expect(upY <= 8, "I: back on the ledge top, got y:", upY)
+  end
+
+  -- K) running AT a ledge climbs it without stopping.
+  --
+  -- Every case above starts the player already standing on the take-off cell,
+  -- which is not how anyone plays: they hold B and a direction and run at the
+  -- thing. The climb is decided on input.step, and p.moving is false for a
+  -- single frame between committed steps, so the arrival frame is also a
+  -- frame the climb can start on -- no pause, no second press.
+  --
+  -- Asserted three ways, because "it worked" is the easy half: a hop
+  -- happened, the player ended up past the ledge, and they never sat idle on
+  -- the take-off cell for anything like a step's worth of frames. That last
+  -- one is what would catch a regression turning this into "walk up, stop,
+  -- press again" -- which still ends in the right cell and would pass the
+  -- first two checks on its own.
+  do
+    place(40, 11, "up")
+    shot("K_runup_1_approaching")
+    local p = game.overworld.player
+    local hop, idleOnTakeoff, run = false, 0, 0
+    for _ = 1, 90 do
+      table.insert(game.input.pressQueue, "up")
+      game.input.state.up = true
+      game.input.state.b = true
+      coroutine.yield()
+      if (p.hopFrames or 0) > 0 then hop = true end
+      if p.cellY == 10 and not p.moving then
+        run = run + 1
+        if run > idleOnTakeoff then idleOnTakeoff = run end
+      else
+        run = 0
+      end
+    end
+    game.input.state.up = false
+    game.input.state.b = false
+    U.wait(6)
+    shot("K_runup_2_past_the_ledge")
+    U.log("INFO", "run-up: ended (" .. p.cellX .. "," .. p.cellY .. ")",
+          "idle frames on the take-off cell:", idleOnTakeoff)
+    expect(hop, "K: running at the ledge climbs it (hop arc seen)")
+    expect(p.cellY <= 8, "K: and carried on past it, got y:", p.cellY)
+    -- A walk tile is 16 frames and a run tile 8; anything at or above a whole
+    -- walk tile spent standing still on that cell is a stop, not a stride.
+    expect(idleOnTakeoff < 16,
+           "K: without stopping on the take-off cell, idle frames:",
+           idleOnTakeoff)
   end
 
   -- J) a survey: how many cells on this one map the feature actually opens.

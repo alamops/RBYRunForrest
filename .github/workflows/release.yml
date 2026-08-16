@@ -28,6 +28,12 @@ on:
     paths-ignore:
       - '.github/**'
       - '**.md'
+      # Neither of these can change what a player receives: .modkitignore
+      # keeps tests/ and docs/ out of the archive entirely, so a run cutting a
+      # new version off them would publish a release byte-identical to the one
+      # before it. Bump manifest.json when you want a release.
+      - 'tests/**'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       version:

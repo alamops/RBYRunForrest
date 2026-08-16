@@ -53,6 +53,14 @@ return function(game)
     U.log(cond and "PASS" or "FAIL", ...)
   end
 
+  -- Silence, for the reason route4_climb_test.lua gives: a driver run is
+  -- automated and nobody is listening. Master volume only, so World:playSfx
+  -- still runs and a throw in the audio path still fails the run.
+  -- POKEPORT_DRIVER_AUDIO=1 turns it back on.
+  if os.getenv("POKEPORT_DRIVER_AUDIO") ~= "1" then
+    pcall(function() love.audio.setVolume(0) end)
+  end
+
   U.wait(45)
   local world = game.world
   assert(world and world.map, "gold world did not boot")
@@ -289,6 +297,54 @@ return function(game)
     expect(bx == c.x and by == c.y,
       ("Gold: back where the climb started, want (%d,%d) got:"):format(c.x, c.y),
       bx, by)
+  end
+
+  -- Running AT a ledge climbs it without stopping.
+  --
+  -- Every case above starts the player already standing on the take-off cell,
+  -- which is not how anyone plays. Start one cell further back and run in.
+  -- The cell behind the take-off is only used when the map actually has one
+  -- that is walkable -- on a map where the take-off cell sits against a wall
+  -- the case is reported as skipped rather than quietly passing on a
+  -- one-cell "run".
+  do
+    local c = perDir[order[1]]
+    local d = DELTA[c.dir]
+    local bx, by = c.x - d[1], c.y - d[2]
+    if world.map:inBounds(bx, by) and world.map:isWalkable(bx, by) then
+      place(bestMap, { x = bx, y = by, dir = c.dir, lx = c.lx, ly = c.ly })
+      local p = world.player
+      local jumped, idleOnTakeoff, run = false, 0, 0
+      for _ = 1, 90 do
+        game.input.pressQueue[#game.input.pressQueue + 1] = c.dir
+        game.input.state[c.dir] = true
+        game.input.state.b = true
+        coroutine.yield()
+        if p.jumping == true then jumped = true end
+        if p.cellX == c.x and p.cellY == c.y and not p.moving then
+          run = run + 1
+          if run > idleOnTakeoff then idleOnTakeoff = run end
+        else
+          run = 0
+        end
+      end
+      game.input.state[c.dir] = false
+      game.input.state.b = false
+      U.wait(6)
+      shot("gold_runup")
+      U.log("INFO", "run-up from (" .. bx .. "," .. by .. ")",
+            "ended (" .. p.cellX .. "," .. p.cellY .. ")",
+            "idle frames on the take-off cell:", idleOnTakeoff)
+      expect(jumped, "Gold: running at the ledge climbs it")
+      -- Gold's walk is 16 frames a tile; a whole tile spent standing still on
+      -- the take-off cell would be a stop rather than a stride, and is what
+      -- would catch a regression into "walk up, halt, press again".
+      expect(idleOnTakeoff < 16,
+             "Gold: without stopping on the take-off cell, idle frames:",
+             idleOnTakeoff)
+    else
+      U.log("SKIP", "no walkable cell behind the take-off cell on " .. bestMap)
+    end
   end
 
   -- Without B, Gold is Gold.
