@@ -16,7 +16,26 @@ tests/rby_run_forrest_test.lua
 tests/drivers/route4_climb_test.lua
 tests/drivers/gold_climb_test.lua
 
-# docs/images/ is deliberately NOT ignored. README.md ships inside the archive
-# and points at those six frames with relative paths, so dropping them would
-# put broken images in the one document a player actually opens. Thirty
-# kilobytes is the right price for that.
+# The README's six frames.
+#
+# They stay in the repo, because a GitHub page nobody installs is exactly
+# where they belong: they are what makes the feature legible to someone
+# deciding whether to try it. They do not go in an archive this project
+# distributes, because a screenshot of a running game is composited out of
+# tiles, sprites and font glyphs decoded from the player's OWN ROM -- it is
+# ROM-derived content wearing a .png extension, and `modkit lint` does not
+# catch it because it reads data files rather than pictures.
+#
+# The cost is that README.md, which does ship, points at six images the
+# archive does not carry. That is the right way round: a player who installs
+# the mod reads it on GitHub, where the images resolve, and the alternative
+# is shipping the pictures.
+#
+# .github/workflows/release.yml drops docs/ wholesale for the same reason, so
+# a release .zip and a `modkit pack` archive contain the same files.
+docs/images/gen1-climb-1-before.png
+docs/images/gen1-climb-2-midair.png
+docs/images/gen1-climb-3-after.png
+docs/images/gen2-climb-1-before.png
+docs/images/gen2-climb-2-midair.png
+docs/images/gen2-climb-3-after.png

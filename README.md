@@ -204,6 +204,41 @@ POKEPORT_IDENTITY=runforrest POKEPORT_TOUCH=0 love .
 
 ---
 
+## Releases
+
+`.github/workflows/release.yml` cuts an installable release on every push to
+`main` that touches something other than docs or the workflow itself. It packs
+the mod, publishes a GitHub Release, and attaches the `.zip` plus a
+`sha256sums.txt`.
+
+The version is resolved by the first rule that applies:
+
+1. the `version` input of a manual **Run workflow** dispatch,
+2. `[release X.Y.Z]` anywhere in the commit message,
+3. `manifest.json`'s own version, when it is ahead of every existing tag —
+   **this is the normal way to cut a release**, so bumping the manifest is the
+   whole ritual,
+4. otherwise the newest `vX.Y.Z` tag with its patch incremented.
+
+Whichever wins is written into the `manifest.json` *inside* the archive, so an
+installed mod never reports a different version than the release it came from.
+A run refuses rather than overwrites if the tag or release already exists.
+
+**What a player receives** is the same set of files `modkit pack` produces, because
+the workflow reads `.modkitignore` rather than keeping a second list that could
+drift from it: the mod itself, the README and the changelog. The test suite and
+the two e2e drivers are excluded — they require an engine checkout and are
+unrunnable from an archive — and so are this README's screenshots, which are
+composited from tiles and sprites decoded from the player's own ROM and belong
+on a GitHub page rather than in a distributed `.zip`.
+
+There is no test job in CI, and that is deliberate rather than an omission: the
+suite runs against a `gen1recomp` checkout (`luajit mods/rby_run_forrest/tests/...`)
+and the drivers need LÖVE plus a ROM, none of which a standalone mod repo has.
+Run them locally, as above, before pushing a version bump.
+
+---
+
 ## Known limitation
 
 **Yellow's Pikachu does not hop with you.** The follower recognises a ledge by
