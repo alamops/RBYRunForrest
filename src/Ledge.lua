@@ -234,10 +234,15 @@ end
 -- the frame simply already has a move in it.
 --
 -- isDown reads the previous tick's pad, one frame stale, which is exactly
--- right for the two held buttons this asks about and is the same staleness
--- the engine's own held-direction reads carry.
+-- right for the held buttons this asks about and is the same staleness the
+-- engine's own held-direction reads carry.
 function M.tick(game)
   if mod.options:get("jump") == false then return end
+  -- ALWAYS RUN drops B from the gate below.  Read once, here, so a row
+  -- toggled mid-tick cannot be true for the direction test and false for the
+  -- button one.  `== true` because this row defaults OFF and options:get
+  -- answers nil until something is stored.
+  local always = mod.options:get("always") == true
   local api = mod.world
   if not api then return end
   local ok, world = pcall(api.overworld, api)
@@ -253,10 +258,15 @@ function M.tick(game)
   if not DELTA[dir] then return end
   local input = game and game.input
   if not (input and input.isDown) then return end
-  -- B is the whole gate, on foot and on the bike alike.  On the bike this
-  -- cannot reach Cycling Road's brake: the brake is the no-direction-held
-  -- branch, and this needs a direction held.
-  if not (input:isDown("b") and input:isDown(dir)) then return end
+  -- A held direction is the half of the gate that never goes away: a climb
+  -- is a step the player is asking for, and it is what keeps this off
+  -- Cycling Road's held-B brake, which is the no-direction-held branch.
+  if not input:isDown(dir) then return end
+  -- B is the other half, on foot and on the bike alike -- until ALWAYS RUN
+  -- says the direction alone is the whole ask.  Nothing below this line
+  -- changes: a climb still has to pass the same geometry, and a ledge with
+  -- an open cell in front of it is still walked into rather than jumped.
+  if not (always or input:isDown("b")) then return end
 
   local gen = generationOf(world)
   if gen == 1 then

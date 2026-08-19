@@ -1,7 +1,7 @@
 {
   "id": "rby_run_forrest",
   "name": "Run Forrest",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -17,6 +17,6 @@
   "dependencies": [],
   "optional_dependencies": [],
   "conflicts": [],
-  "description": "Hold B to run at bike speed on foot, and to jump BACK UP the ledges these games only ever let you drop off. Every one-way hop becomes two-way while B is held, on foot and on the bike, on Red/Blue/Yellow and Gold.",
+  "description": "Hold B to run at bike speed on foot, to ride at twice that on the bike, and to jump BACK UP the ledges these games only ever let you drop off. Every one-way hop becomes two-way while B is held, on foot and on the bike, on Red/Blue/Yellow and Gold. Or turn ALWAYS RUN on and none of it asks for the button.",
   "github": "alamops/RBYRunForrest"
 }

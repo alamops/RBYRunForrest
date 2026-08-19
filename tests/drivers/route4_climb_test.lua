@@ -29,10 +29,13 @@
 --   E  B+UP with the B TO CLIMB option off does NOT climb
 --   F  B+UP into a solid mountain-wall face does NOT climb
 --   G  the climb works ON THE BIKE too
---   H  holding B on foot covers ground faster than walking, measured on a
---      flat stretch, and the bike is neither slowed nor sped by holding B
+--   H  the four paces, measured on a flat stretch: a walk, a run, the bike,
+--      and the bike with B held, which has to come out ahead of the run
 --   I  the round trip: drop off a ledge the vanilla way, then climb back
 --   J  a survey of every climbable cell ROUTE_4 actually has
+--   L  with ALWAYS RUN on, UP alone climbs and a walk alone runs -- the
+--      button stops being asked for, and nothing else about either half
+--      changes
 --
 -- Run (from a private engine view with this mod symlinked into mods/):
 --   POKEPORT_DRIVER=mods/rby_run_forrest/tests/drivers/route4_climb_test.lua \
@@ -166,6 +169,23 @@ return function(game)
     return true
   end
 
+  -- A measured pace is only this mod's answer while this mod is the only
+  -- link on the seam.  The engine records the owner of every wrap, so the two
+  -- cases that MEASURE (H, and the pace half of L) ask first and stand down
+  -- with a named SKIP rather than asserting the sum of two mods' arithmetic
+  -- as if it were ours -- which is exactly what a second running-shoes mod in
+  -- the same mods/ folder would otherwise make them do.
+  local function sharesSpeedHook()
+    local chain = loader and loader.hooks and loader.hooks.chains
+      and loader.hooks.chains["movement.speed"]
+    for _, entry in ipairs(chain or {}) do
+      if entry.owner and entry.owner ~= "rby_run_forrest" then
+        return tostring(entry.owner)
+      end
+    end
+    return nil
+  end
+
   -- A') the inverse of the control south-ledge hop: from where that hop
   -- LANDED, B+UP climbs back to where it took off.
   do
@@ -232,39 +252,54 @@ return function(game)
     game.save.onBike = false
   end
 
-  -- H) the running shoes themselves, measured rather than asserted.
+  -- H) the four paces themselves, measured rather than asserted.
   --
   -- Run EAST along row 3 of the east plateau, which the control driver
   -- establishes as open tile-57 ground from roughly x=72 to x=80 -- no
   -- ledges, no terraces, nothing to hop.  Measuring on a stretch with ledges
   -- in it measures the ledges, not the pace.
   --
-  -- 64 frames is chosen to stay inside that stretch at every pace: a walk is
-  -- 16 frames a tile (4 tiles) and everything faster is 8 (8 tiles), so the
-  -- fastest run ends at x=78 with ground to spare.  The two shots are taken
-  -- from the same start after the same number of frames, so the gap between
-  -- them IS the feature.
-  do
-    local FRAMES, FROM = 64, 70
+  -- 32 frames is chosen to stay inside that stretch at every pace, and the
+  -- fastest pace is what sets it: a boosted bike is 4 frames a tile, so 32
+  -- frames is 8 tiles and ends at x=78 with ground to spare.  All four runs
+  -- start from the same cell and get the same window, so the gaps between
+  -- them ARE the features.
+  --
+  -- The comparisons are ordering plus a one-cell tolerance rather than exact
+  -- equality: no window divides evenly into every pace, so which side of a
+  -- tile boundary a run ends on moves by one with where its first step was
+  -- committed.  An exact-equality assertion here measures that boundary.
+  local speedHookShared = sharesSpeedHook()
+  if speedHookShared then
+    U.log("SKIP", "H: " .. speedHookShared .. " also wraps movement.speed, so"
+      .. " a measured pace would be the chain's answer and not this mod's")
+  else
+    local FRAMES, FROM = 32, 70
     local function distance(withB, onBike, slug)
       place(FROM, 3, "right", onBike)
       local _, _, hop, endX = hold("right", FRAMES, withB)
       if slug then shot(slug) end
       return endX - FROM, hop
     end
-    local walked, walkHop = distance(false, false, "H_pace_1_walk_64f")
-    local ran, runHop = distance(true, false, "H_pace_2_run_64f")
-    local biked, bikeHop = distance(false, true, "H_pace_3_bike_64f")
-    local bikedB, bikeBHop = distance(true, true, "H_pace_4_bike_plus_b_64f")
+    local walked, walkHop = distance(false, false, "H_pace_1_walk_32f")
+    local ran, runHop = distance(true, false, "H_pace_2_run_32f")
+    local biked, bikeHop = distance(false, true, "H_pace_3_bike_32f")
+    local bikedB, bikeBHop = distance(true, true, "H_pace_4_bike_plus_b_32f")
     game.save.onBike = false
     U.log("INFO", "cells in", FRAMES, "frames -- walk:", walked, "run:", ran,
           "bike:", biked, "bike+B:", bikedB)
     expect(not (walkHop or runHop or bikeHop or bikeBHop),
            "H: the measured stretch is flat (no hop in any of the four runs)")
     expect(ran > walked, "H: holding B on foot covers more ground than walking")
-    expect(ran == biked,
-           "H: and running is bike-fast, which is the whole design")
-    expect(biked == bikedB, "H: the bike's pace is the same with B held")
+    expect(math.abs(ran - biked) <= 1,
+           "H: and running is bike-fast, which is the whole design,",
+           ran, "vs", biked)
+    expect(bikedB > biked,
+           "H: holding B on the bike is faster than coasting on it,",
+           bikedB, "vs", biked)
+    expect(bikedB > ran,
+           "H: and a boosted bike beats a runner, which is the ordering the",
+           "feature is for,", bikedB, "vs", ran)
   end
 
   -- I) the round trip, which is the feature in one sequence: drop off the
@@ -332,6 +367,75 @@ return function(game)
     expect(idleOnTakeoff < 16,
            "K: without stopping on the take-off cell, idle frames:",
            idleOnTakeoff)
+  end
+
+  -- L) ALWAYS RUN: the same two features, with nothing held but a direction.
+  --
+  -- The row moves the gate off B rather than adding a third feature, so this
+  -- re-asks the two cases that define each half -- case A' for the climb and
+  -- case H for the pace -- with the button never touched.  Case D above is
+  -- the control: the same press, the same cell, with the row off.
+  do
+    if setOption("always", true) then
+      place(40, 10, "up")
+      shot("L_always_1_before")
+      local x, y, hop = hold("up", 60, false,
+                             function() shot("L_always_2_midair") end)
+      shot("L_always_3_after")
+      expect(hop, "L: with ALWAYS RUN on, UP alone climbs (hop arc seen)")
+      expect(x == 40 and y <= 8,
+             "L: climbed back onto the ledge top with no B, got:", x, y)
+
+      -- and the pace, on foot and on the bike, measured on the same flat
+      -- stretch and over the same 32-frame window as case H so the numbers
+      -- sit alongside that case's.  Each pace is measured with the row on
+      -- and nothing held, then again with the row off, so every comparison
+      -- is between two runs of this driver rather than a remembered figure.
+      --
+      -- The claim is "clears the unheld pace, matches the held one to within
+      -- a cell", for the same tile-boundary reason case H states -- and it
+      -- stands down for the same reason too when the seam is shared.
+      if speedHookShared then
+        setOption("always", nil)
+        U.log("SKIP", "L: pace not measured -- " .. speedHookShared
+          .. " also wraps movement.speed, so it would be the chain's answer")
+      else
+        local FRAMES, FROM = 32, 70
+        local function distance(withB, onBike)
+          place(FROM, 3, "right", onBike)
+          local _, _, hop, endX = hold("right", FRAMES, withB)
+          game.save.onBike = false
+          return endX - FROM, hop
+        end
+        local alwaysRan, alwaysHop = distance(false, false)
+        shot("L_always_4_pace_32f")
+        local alwaysBiked, alwaysBikeHop = distance(false, true)
+        setOption("always", nil)
+        local walked, walkHop = distance(false, false)
+        local heldRan, heldHop = distance(true, false)
+        local coasted, coastHop = distance(false, true)
+        local heldBiked, heldBikeHop = distance(true, true)
+        U.log("INFO", "cells in", FRAMES, "frames -- always-run:", alwaysRan,
+              "walk:", walked, "B held:", heldRan, "| always-bike:", alwaysBiked,
+              "coast:", coasted, "bike+B:", heldBiked)
+        expect(not (alwaysHop or alwaysBikeHop or walkHop or heldHop
+                    or coastHop or heldBikeHop),
+               "L: the measured stretch is flat (no hop in any of the six)")
+        expect(alwaysRan > walked,
+               "L: with ALWAYS RUN on, a player holding nothing runs,",
+               alwaysRan, "cells against a walk's", walked)
+        expect(math.abs(alwaysRan - heldRan) <= 1,
+               "L: and runs at the pace B held gives,", alwaysRan, "vs",
+               heldRan)
+        expect(alwaysBiked > coasted,
+               "L: the bike is boosted with nothing held too,", alwaysBiked,
+               "cells against a coast's", coasted)
+        expect(math.abs(alwaysBiked - heldBiked) <= 1,
+               "L: at the pace B held gives it,", alwaysBiked, "vs", heldBiked)
+      end
+    else
+      U.log("SKIP", "L: no loader handle for the options store")
+    end
   end
 
   -- J) a survey: how many cells on this one map the feature actually opens.

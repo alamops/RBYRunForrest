@@ -1,5 +1,65 @@
 # Changelog
 
+## [1.1.0] - 2026-08-18
+
+### Added
+
+- **The bike has a pace of its own now.** Holding B on the bike halves the
+  bike's step the way holding it on foot halves the walk, so a boosted bike is
+  twice the bike and four times a walk — a cyclist who holds B ends up ahead
+  of a runner who holds B, which is the ordering the row is for. Under
+  `B TO RUN`, like the on-foot half.
+- A divisor again, not a frame count, and it pays for itself twice here: the
+  engine hands over the *bike's* step rather than the walk's, and Gold's
+  Cycling Road hands over different frames for a step down the slope and a
+  step across it. Dividing both keeps Gold's own "across is slower than down"
+  intact instead of flattening the slope to one speed.
+- Cycling Road's held-B brake is still out of reach on both generations,
+  because the brake is not a step: the forced downhill roll is the branch
+  taken when nothing is held and nothing is braking, and it stands down before
+  any move is made. Held B there still stops the player dead; a direction held
+  *with* it now costs less.
+
+- `ALWAYS RUN`, a third row under START > OPTIONS, **default off**. Turned on,
+  neither half asks for B any more: you run at the same bike-speed pace with
+  nothing held, and pressing back into a ledge climbs it without a button or a
+  second press — the Gen 3+ Running Shoes, once you own them.
+- It defaults off on purpose. Holding B is what the mod is named after, so an
+  install keeps the controls it advertised until the player says otherwise.
+
+### Unchanged by it
+
+- The row moves the gate rather than widening it. `B TO RUN` off is still no
+  running and `B TO CLIMB` off is still no climb — it says how you ask, not
+  whether it happens, and either half can be left on the button while the
+  other runs buttonless.
+- Surfing still passes through at its own pace, and a climb still has to pass
+  the same geometry: a real ledge, a refused gap, free ground to land on.
+  Holding B anyway is neither faster nor slower. The bike is boosted with
+  nothing held exactly as it is with B held, which on Cycling Road means the
+  slope's own downhill roll coasts at the boosted pace too.
+
+### Tests
+
+- The headless suite asserts the third row and its **off** default, drives the
+  `movement.speed` closure at all four paces and under the row (nothing held
+  runs and the bike is boosted; the water and `B TO RUN` off are unmoved), and
+  drives a real Gold `World` through a buttonless climb, a wall it still
+  refuses, and `B TO CLIMB` off.
+- Both live drivers gained a case: on Route 4, UP alone climbs and both paces
+  with nothing held match their B-held selves; on Route 29, the same climb the
+  case above it drives with B held.
+- The Route 4 driver measures the four paces over a 32-frame window, sized by
+  the fastest of them so every run stays inside the flat stretch, and compares
+  them by ordering with a one-cell tolerance — no window divides evenly into
+  every pace, so an exact-equality check there measures a tile boundary rather
+  than the feature.
+- Its two measuring cases now stand down with a named `SKIP` when another
+  loaded mod also wraps `movement.speed`. With two mods on that seam the
+  measured pace is the chain's answer rather than this mod's, which is exactly
+  what had case H reporting a failure against a second running-shoes mod
+  installed alongside it.
+
 ## [1.0.0] - 2026-08-16
 
 First release. Shipped at 1.0.0 rather than 0.x because the feature is

@@ -63,12 +63,19 @@ do
   local schema = run.loader.optionSchemas["rby_run_forrest"] or {}
   local byKey = {}
   for _, row in ipairs(schema) do byKey[row.key] = row end
-  eq(#schema, 2, "defines exactly the two rows it documents")
+  eq(#schema, 3, "defines exactly the three rows it documents")
   for _, key in ipairs({ "run", "jump" }) do
     check(byKey[key] ~= nil, "defines the " .. key .. " option row")
     eq(byKey[key] and byKey[key].type, "toggle", key .. " is a toggle")
     eq(byKey[key] and byKey[key].default, true, key .. " defaults on")
   end
+  -- ALWAYS RUN is the one row that defaults OFF, and that default is the
+  -- whole promise of the mod's name: a player who installs "hold B to run"
+  -- must get a game where B is what runs, until they say otherwise.  A
+  -- typo'd `true` here would change the controls of every install.
+  check(byKey.always ~= nil, "defines the always option row")
+  eq(byKey.always and byKey.always.type, "toggle", "always is a toggle")
+  eq(byKey.always and byKey.always.default, false, "always defaults OFF")
 end
 
 -- Dual-gen headless load: the manifest claims games ["gen1","gen2"], so both
@@ -107,10 +114,22 @@ eq(entry.callback(pass, 11, { input = heldB }), 5,
 check(entry.callback(pass, 1, { input = heldB }) >= 1,
       "and never drops below one frame a tile")
 
-eq(entry.callback(pass, 16, { input = heldB, onBike = true }), 16,
-   "the bike is already this fast, so holding B changes nothing about it")
+-- The bike is a pace of its own rather than a pass-through.  The engine hands
+-- over the BIKE's step here (8 frames a tile against a walk's 16, on both
+-- generations), so the same halving applied to it is twice the bike and four
+-- times a walk -- and the ordering below is the point of the row, asserted
+-- against the two numbers the engines really hand in rather than against 8.
+eq(entry.callback(pass, 8, { input = heldB, onBike = true }), 4,
+   "holding B on the bike halves the bike's own step, not the walk's")
+eq(entry.callback(pass, 8, { input = noB, onBike = true }), 8,
+   "and letting go coasts at the pace the bike has always had")
+check(entry.callback(pass, 8, { input = heldB, onBike = true })
+      < entry.callback(pass, 16, { input = heldB }),
+      "a boosted bike is faster than running on foot, which is the whole row")
+eq(entry.callback(pass, 6, { input = heldB, onBike = true }), 3,
+   "a data pack with a 6-frame bike gets 3, so the divisor is still a ratio")
 eq(entry.callback(pass, 16, { input = heldB, surfing = true }), 16,
-   "and surfing is left alone too")
+   "and surfing is left alone")
 eq(entry.callback(pass, 16, { input = noB }), 16,
    "letting go of B walks at the ordinary pace")
 eq(entry.callback(pass, 16, nil), 16,
@@ -124,6 +143,34 @@ run.loader.modOptions["rby_run_forrest"] = { run = false }
 eq(entry.callback(pass, 16, { input = heldB }), 16,
    "turning B TO RUN off walks at the ordinary pace even with B held")
 run.loader.modOptions["rby_run_forrest"] = nil
+
+-- ------- ALWAYS RUN: the same halving, with nothing held
+--
+-- The row moves the gate rather than widening it, so what is asserted here is
+-- as much what does NOT change: the bike and the water are still walked past,
+-- and B TO RUN is still the switch that turns running off.
+run.loader.modOptions["rby_run_forrest"] = { always = true }
+eq(entry.callback(pass, 16, { input = noB }), 8,
+   "with ALWAYS RUN on, a walk tile runs with no button held")
+eq(entry.callback(pass, 24, { input = noB }), 12,
+   "and it is still the engine's own speed being halved, never a fixed 8")
+eq(entry.callback(pass, 16, { input = heldB }), 8,
+   "holding B anyway is neither faster nor slower")
+eq(entry.callback(pass, 16, {}), 8,
+   "and a ctx with no input at all runs, because the pad is no longer asked")
+eq(entry.callback(pass, 8, { input = noB, onBike = true }), 4,
+   "the bike is boosted with nothing held too, at its own figure")
+eq(entry.callback(pass, 16, { input = noB, surfing = true }), 16,
+   "and surfing is still left alone")
+
+run.loader.modOptions["rby_run_forrest"] = { always = true, run = false }
+eq(entry.callback(pass, 16, { input = noB }), 16,
+   "B TO RUN off is still no running: ALWAYS RUN says how, not whether")
+run.loader.modOptions["rby_run_forrest"] = nil
+
+-- and the shipped default, restated after the flips above, is the button
+eq(entry.callback(pass, 16, { input = noB }), 16,
+   "out of the box, a player who holds nothing walks")
 
 end)()
 
@@ -496,13 +543,16 @@ end
 -- A mod facade whose mod.world answers with whichever World the case built,
 -- which is the one thing Ledge.tick reaches the live game through.
 local current = nil
+-- The rows as a table rather than a fixed answer, so a case can flip ALWAYS
+-- RUN the way a player would and drive the shipped tick against it.  `jump`
+-- is spelled out at its shipped default; `always` is left unset, which is
+-- what mod.options:get answers for a row nothing has stored yet.
+local goldOptions = { jump = true }
 local goldMod = {
   id = "rby_run_forrest", path = MOD_PATH,
   log = { info = function() end, warn = function() end, error = function() end },
-  options = { define = function() end, get = function(_, k)
-    if k == "jump" then return true end
-    return nil
-  end },
+  options = { define = function() end,
+              get = function(_, k) return goldOptions[k] end },
   hooks = { wrap = function() end },
   world = { overworld = function() return current end },
 }
@@ -573,6 +623,64 @@ do
   current = world
   local _, y = climb(world, game, Ledge2, "up")
   eq(y, 7, "Gold: a wall with open ground behind it is not climbed")
+end
+
+-- ------- ALWAYS RUN, against the same real World
+--
+-- The direction alone has to do what B + the direction did, and nothing
+-- else may move with it: the geometry, the entity test and B TO CLIMB are
+-- all still the same gate, so each is re-asked here with the row on.
+
+-- the same climb the first case drives, with no button held at all
+local function walkInto(world, game, dir, frames)
+  world.player.turnArmed = false
+  world.entities = { world.player }
+  heldButtons = { [dir] = true }
+  Ledge2.tick(game)
+  local jumped = world.player.jumping == true
+  for _ = 1, (frames or 60) do
+    if not world.player.moving then break end
+    world:step()
+  end
+  heldButtons = {}
+  return world.player.cellX, world.player.cellY, jumped
+end
+
+do
+  local world, game = buildWorld(CELLS)
+  world.player = Gen2Player.new(4, 7, "up")
+  current = world
+  goldOptions.always = true
+  local x, y, jumped = walkInto(world, game, "up")
+  goldOptions.always = nil
+  check(jumped, "Gold: with ALWAYS RUN on, UP alone starts the climb")
+  eq(x, 4, "Gold: and it lands on the ledge tile (x)")
+  eq(y, 5, "Gold: and it lands on the ledge tile (y)")
+end
+
+-- The row moves the gate; it does not loosen the rule behind it.  A wall
+-- that was not climbable with B held is not climbable without it either.
+do
+  local world, game = buildWorld({ [6 * 100 + 4] = COLL_WALL })
+  world.player = Gen2Player.new(4, 7, "up")
+  current = world
+  goldOptions.always = true
+  local _, y = walkInto(world, game, "up")
+  goldOptions.always = nil
+  eq(y, 7, "Gold: ALWAYS RUN does not make a plain wall climbable")
+end
+
+-- ...and it is not a master switch either: a player who turned climbing off
+-- turned it off, however they are asking for the step.
+do
+  local world, game = buildWorld(CELLS)
+  world.player = Gen2Player.new(4, 7, "up")
+  current = world
+  goldOptions.always, goldOptions.jump = true, false
+  local _, y, jumped = walkInto(world, game, "up")
+  goldOptions.always, goldOptions.jump = nil, true
+  check(not jumped, "Gold: B TO CLIMB off is still no climb under ALWAYS RUN")
+  eq(y, 7, "Gold: and the player has not moved")
 end
 
 current = nil

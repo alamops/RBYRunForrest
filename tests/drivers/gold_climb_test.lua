@@ -356,6 +356,26 @@ return function(game)
     expect(not jumped, "Gold: without B the ledge stays one-way")
   end
 
+  -- ALWAYS RUN: the same climb on the same live map, with no button held.
+  -- The case directly above is its control -- same cell, same press, same
+  -- 60 frames -- so the pair says exactly what the row does and nothing else.
+  do
+    if setOption("always", true) then
+      local c = perDir[order[1]]
+      place(bestMap, c)
+      local x, y, jumped = hold(c.dir, 60, false)
+      shot("gold_always_run_climb")
+      setOption("always", nil)
+      expect(jumped, ("Gold: with ALWAYS RUN on, %s alone climbs on %s")
+        :format(c.dir:upper(), bestMap))
+      expect(x == c.lx and y == c.ly,
+        ("Gold: landed on the ledge tile with no B, want (%d,%d) got:")
+          :format(c.lx, c.ly), x, y)
+    else
+      U.log("SKIP", "no loader handle for the options store")
+    end
+  end
+
   -- And the option switch really switches it off.
   do
     if setOption("jump", false) then
