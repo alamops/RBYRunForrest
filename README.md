@@ -4,10 +4,15 @@ A movement mod for [Gen1Recomp](https://github.com/alamops/gen1recomp). Hold **B
 and two things happen:
 
 - **You run.** A tile takes half as long on foot — bike speed, the Gen 3+
-  Running Shoes figure.
+  Running Shoes figure — and half as long again on the bike, which keeps the
+  bike ahead of a runner where it belongs.
 - **You can climb ledges.** Every one-way hop in Kanto and Johto becomes
   two-way while B is held. Drop off a ledge, change your mind, hold B and
   press back into it.
+
+Or don't hold it: **ALWAYS RUN** under START → OPTIONS drops the button and
+leaves both halves on all the time. It ships off, because holding B is what the
+mod is named after.
 
 Works on Red, Blue, Yellow and Gold. Works offline; it is a movement feature,
 not a connection feature.
@@ -108,12 +113,27 @@ press does; the climb goes on the next tick.
 
 ### On the bike
 
-Yes. B is the gate on foot and on the bike alike, which is the one rule worth
-having: a cyclist is not running, and still wants the way back.
+Yes — and the bike gets the pace too. B is the gate on foot and on the bike
+alike, which is the one rule worth having: a cyclist is not running, and still
+wants both the way back and something for holding the button.
 
-This cannot collide with Cycling Road's held-B brake. The brake is the branch
-the engine takes when **no** direction is held; a climb needs one held. The two
-can never be asked for by the same frame of input.
+| | not holding B | holding B |
+| --- | --- | --- |
+| on foot | a walk | **half a walk** — bike speed |
+| on the bike | bike speed | **half the bike** — twice a runner |
+
+Each half is a division of the pace the engine was going to charge for that
+step, never a frame count, so the ordering holds on a data pack that prices
+either one differently — and Gold's Cycling Road keeps its own rule that
+coasting *across* a slope is slower than coasting *down* it, because both
+sides of that rule are divided by the same figure.
+
+None of this can collide with Cycling Road's held-B brake. The brake is not a
+step: the engine's forced downhill roll is the branch it takes when **no**
+direction is held and **nothing** is braking, and it stands down before any
+move is made. Holding B on the slope still stops you dead — what is new is
+that a direction held *with* it costs less. (A climb needs a direction held
+too, so it can never be the frame the brake is asking for either.)
 
 ### Not while surfing
 
@@ -124,16 +144,45 @@ in the sea.
 
 ## Options
 
-Both rows live under **START → OPTIONS**, both default on.
+Three rows, all under **START → OPTIONS**.
 
-| row | what turning it off does |
-| --- | --- |
-| `B TO RUN` | B stops changing your pace. Climbing still works. |
-| `B TO CLIMB` | Ledges go back to one-way. Running still works. |
+| row | default | what it does |
+| --- | --- | --- |
+| `B TO RUN` | on | Off, B stops changing your pace, on foot and on the bike. Climbing still works. |
+| `B TO CLIMB` | on | Off, ledges go back to one-way. Running still works. |
+| `ALWAYS RUN` | **off** | On, neither half asks for B any more — see below. |
 
-They are separate on purpose. B already means "cancel" everywhere else in these
-games, so a player surprised by either half should be able to keep the half they
-wanted.
+The first two are separate on purpose. B already means "cancel" everywhere else
+in these games, so a player surprised by either half should be able to keep the
+half they wanted.
+
+### ALWAYS RUN
+
+Turn it on and the button stops being the gate. You move at the same boosted
+pace with nothing held — on foot and on the bike — and pressing back into a
+ledge climbs it, with no B and no second press, the way the Gen 3+ Running
+Shoes work once you own them.
+
+It defaults **off** because holding B is the mod's whole name, and a player who
+installed "hold B to run" should get the game they asked for until they say
+otherwise.
+
+It moves the gate rather than widening it. Everything the other two rows refuse
+is still refused, and every rule behind them is untouched:
+
+- `B TO RUN` off is still no running, and `B TO CLIMB` off is still no climb —
+  this row says *how* you ask, not *whether* it happens. Turn one off and the
+  other keeps working buttonless.
+- Surfing still passes through at its own pace — no generation has a sprint
+  across water. The bike is boosted with nothing held, exactly as it is with B
+  held, which on Cycling Road means the slope's own downhill roll coasts at the
+  boosted pace too.
+- A climb still needs the geometry — a real ledge, a refused gap, free ground
+  to land on. A wall you could not climb with B held is not climbable without
+  it, and a gap you could simply walk across is still walked across.
+- Holding B anyway costs nothing. It is neither faster nor slower, and it is
+  still Cycling Road's brake, which needs no direction held — while a run and
+  a climb both need one.
 
 ---
 
@@ -161,7 +210,10 @@ Two seams, and no engine file is patched out.
 step. The arithmetic is a *divisor*, not a frame count: the engine hands over
 this game's walk speed and the mod halves whatever it was handed, so a data pack
 that says a tile is 24 frames gets a 12-frame run rather than being quietly
-slowed to the vanilla 8. The bike and surfing pass through untouched.
+slowed to the vanilla 8. The bike is divided by its own figure for the same
+reason — the engine hands over the bike's step, not the walk's, so halving it
+is twice the bike and four times a walk without either number being written
+down. Surfing passes through untouched.
 
 **Climbing** is decided on `input.step`, the logic tick both engines raise
 *before* the pad's edges are promoted and before the overworld reads the d-pad.
@@ -205,9 +257,17 @@ ln -s /path/to/RBYRunForrest mods/rby_run_forrest
 luajit mods/rby_run_forrest/tests/rby_run_forrest_test.lua
 ```
 
-It drives the real loader on both generations, asserts the two seams and two
+It drives the real loader on both generations, asserts the two seams and three
 options rows are actually installed, drives the registered `movement.speed`
-closure directly, and unit-tests both reverse-hop arms against fixture maps.
+closure directly at all four paces, and unit-tests both reverse-hop arms
+against fixture maps — each half once on the button and once under
+`ALWAYS RUN`.
+
+The live drivers measure the four paces rather than assume them, and stand
+down with a named `SKIP` if any **other** loaded mod also wraps
+`movement.speed`: with two mods on that seam the number that comes back is the
+chain's answer, not this mod's, and a pace case that asserted it anyway would
+be reporting someone else's arithmetic as ours.
 
 The live driver proves the feature in a real game, on real Route 4 tile data.
 Its three positive cases are the exact inverses of the three control cases in

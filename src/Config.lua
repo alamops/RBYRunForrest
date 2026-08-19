@@ -12,6 +12,22 @@ local M = {}
 -- speed.
 M.RUN_DIVISOR = 2
 
+-- The bike, held to the same shape for the same reason.
+--
+-- The engine hands over the BIKE's step, not the walk's, so this divides a
+-- number that is already half a walk: two here makes a boosted bike twice
+-- the bike and four times a walk, which is the ordering the feature is for
+-- -- a cyclist who holds B has to end up ahead of a runner who holds B, and
+-- on both generations the bike's own step is exactly a runner's.
+--
+-- A divisor rather than a frame count again, and this is where that pays for
+-- itself twice: Gold's Cycling Road hands DIFFERENT frames to a step down
+-- the slope and a step across it (Bike.stepFrames' DOWNHILL exception, which
+-- gives every direction but DOWN the walking duration back).  Dividing both
+-- keeps Gold's own "across is slower than down" intact instead of flattening
+-- the slope into one speed, which a fixed frame count here would do.
+M.BIKE_DIVISOR = 2
+
 -- A hop covers two cells, so it is given two steps' worth of frames.  This
 -- is the multiplier both engines already apply to their own ledge hops
 -- (OverworldState:checkLedgeHop's `* 2`, World:tryLedgeJump's
